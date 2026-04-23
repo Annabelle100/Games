@@ -2,287 +2,355 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Dict, List, Optional, Set, Tuple
+from typing import Dict, List, Optional, Tuple
 import random
 
 
-Hex = Tuple[int, int]
+SECTOR_COUNT = 24
+PHASE_RING_SLOTS = 6
+MAX_CYCLES = 9
 
 
-class Layer(str, Enum):
-    PAST = "past"
-    PRESENT = "present"
-    FUTURE = "future"
+class TideState(str, Enum):
+    LOW = "low"
+    CREST = "crest"
+    BREAK = "break"
 
 
-class Resource(str, Enum):
-    ORE = "ore"
-    FLUX = "flux"
-    FIBER = "fiber"
-    EMBER = "ember"
-
-
-class PieceType(str, Enum):
-    CORE = "core"
-    KEYSTONE = "keystone"
-    RELAY = "relay"
-    REFRACTOR = "refractor"
+class VectorType(str, Enum):
+    PUSH = "push"
+    PULL = "pull"
+    SPLIT = "split"
+    MIRROR = "mirror"
+    NULL = "null"
 
 
 @dataclass
-class Piece:
-    owner: int
-    piece_type: PieceType
+class Sector:
+    water: int = 0
+    foam: int = 0
 
 
 @dataclass
 class PlayerState:
     player_id: int
-    resources: Dict[Resource, int] = field(default_factory=lambda: {
-        Resource.ORE: 2,
-        Resource.FLUX: 1,
-        Resource.FIBER: 1,
-        Resource.EMBER: 0,
-    })
-    instability: int = 0
-    pressure: int = 0
-    blueprint_hand: List[str] = field(default_factory=list)
-    objectives: List[str] = field(default_factory=list)
+    harbor: int
+    foam: int = 2
+    drift: int = 1
+    beacons: List[int] = field(default_factory=list)
+    siphons: List[int] = field(default_factory=list)
+    claims: List[int] = field(default_factory=list)
+    spent_vectors: List[VectorType] = field(default_factory=list)
+    ready_vectors: Dict[VectorType, int] = field(
+        default_factory=lambda: {
+            VectorType.PUSH: 3,
+            VectorType.PULL: 2,
+            VectorType.SPLIT: 1,
+            VectorType.MIRROR: 1,
+            VectorType.NULL: 1,
+        }
+    )
 
 
 @dataclass
-class BuildGhost:
+class PhaseSlot:
     owner: int
-    piece_type: PieceType
-    hex_coord: Hex
+    vector: VectorType
+    cancelled: bool = False
 
 
 class RuleViolation(ValueError):
     pass
 
 
-class ChronoforgeStrataGame:
-    """Core deterministic rules engine for Chronoforge Strata."""
-
-    BUILD_COST = {
-        PieceType.KEYSTONE: {Resource.ORE: 1, Resource.FIBER: 1},
-        PieceType.RELAY: {Resource.ORE: 1, Resource.FLUX: 1},
-        PieceType.REFRACTOR: {Resource.FIBER: 1, Resource.EMBER: 1},
-    }
+class LatticeOfTidesGame:
+    """Playable deterministic rules engine for Lattice of Tides."""
 
     def __init__(self, num_players: int, seed: Optional[int] = None) -> None:
-        if not 2 <= num_players <= 5:
-            raise ValueError("Chronoforge Strata supports 2 to 5 players.")
-        self.num_players = num_players
+        if not 2 <= num_players <= 6:
+            raise ValueError("Lattice of Tides supports 2 to 6 players.")
         self.random = random.Random(seed)
-        self.round = 1
-        self.current_player = 0
+        self.num_players = num_players
+        self.cycle = 1
+        self.first_navigator = 0
+        self.tide = TideState.LOW
 
-        self.board_cells: Set[Hex] = self._generate_hex_board(radius=5)
-        self.layers: Dict[Layer, Dict[Hex, Piece]] = {
-            Layer.PAST: {},
-            Layer.PRESENT: {},
-            Layer.FUTURE: {},
-        }
-        self.future_ghosts: List[BuildGhost] = []
-        self.resonance_links: Set[Tuple[int, Hex, Layer, Layer]] = set()
+        self.sectors: List[Sector] = [Sector(water=2, foam=0) for _ in range(SECTOR_COUNT)]
+        harbor_positions = self._harbor_positions(num_players)
         self.players: Dict[int, PlayerState] = {
-            pid: PlayerState(player_id=pid) for pid in range(num_players)
+            pid: PlayerState(player_id=pid, harbor=harbor_positions[pid])
+            for pid in range(num_players)
         }
-
-        self._place_starting_cores()
-
-    @staticmethod
-    def _generate_hex_board(radius: int) -> Set[Hex]:
-        cells: Set[Hex] = set()
-        for q in range(-radius, radius + 1):
-            r1 = max(-radius, -q - radius)
-            r2 = min(radius, -q + radius)
-            for r in range(r1, r2 + 1):
-                cells.add((q, r))
-        return cells
+        self.phase_ring: List[PhaseSlot] = []
 
     @staticmethod
-    def neighbors(coord: Hex) -> List[Hex]:
-        q, r = coord
-        dirs = [(1, 0), (-1, 0), (0, 1), (0, -1), (1, -1), (-1, 1)]
-        return [(q + dq, r + dr) for dq, dr in dirs]
-
-    def _place_starting_cores(self) -> None:
-        # distribute cores on board edge in deterministic clockwise-ish order
-        edge_cells = sorted(
-            [c for c in self.board_cells if self._hex_distance((0, 0), c) == 5],
-            key=lambda x: (self._angle_key(x), x[0], x[1]),
-        )
-        step = len(edge_cells) // self.num_players
-        for pid in range(self.num_players):
-            hex_coord = edge_cells[(pid * step) % len(edge_cells)]
-            self.layers[Layer.PRESENT][hex_coord] = Piece(pid, PieceType.CORE)
+    def _harbor_positions(num_players: int) -> List[int]:
+        step = SECTOR_COUNT // num_players
+        return [(i * step) % SECTOR_COUNT for i in range(num_players)]
 
     @staticmethod
-    def _hex_distance(a: Hex, b: Hex) -> int:
-        aq, ar = a
-        bq, br = b
-        return max(abs(aq - bq), abs(ar - br), abs((aq + ar) - (bq + br)))
+    def _cw(idx: int) -> int:
+        return (idx + 1) % SECTOR_COUNT
 
     @staticmethod
-    def _angle_key(coord: Hex) -> float:
-        q, r = coord
-        x = q + r / 2
-        y = (3 ** 0.5) * r / 2
-        return (3.1415926535 + __import__("math").atan2(y, x)) % (2 * 3.1415926535)
+    def _ccw(idx: int) -> int:
+        return (idx - 1) % SECTOR_COUNT
 
-    def _require_cell(self, hex_coord: Hex) -> None:
-        if hex_coord not in self.board_cells:
-            raise RuleViolation(f"Invalid hex {hex_coord}.")
+    def _validate_player(self, player_id: int) -> None:
+        if player_id not in self.players:
+            raise RuleViolation(f"Unknown player id {player_id}.")
 
-    def _spend_resources(self, player_id: int, cost: Dict[Resource, int]) -> None:
+    def _validate_sector(self, sector_idx: int) -> None:
+        if not 0 <= sector_idx < SECTOR_COUNT:
+            raise RuleViolation(f"Invalid sector index {sector_idx}.")
+
+    # -----------------------------
+    # Program phase actions
+    # -----------------------------
+    def place_vector(self, player_id: int, vector: VectorType) -> None:
+        self._validate_player(player_id)
         p = self.players[player_id]
-        for res, amount in cost.items():
-            if p.resources[res] < amount:
-                raise RuleViolation(f"Player {player_id} lacks {res.value}.")
-        for res, amount in cost.items():
-            p.resources[res] -= amount
+        if len(self.phase_ring) >= PHASE_RING_SLOTS:
+            raise RuleViolation("Phase ring is full.")
+        if p.ready_vectors[vector] <= 0:
+            raise RuleViolation(f"Player {player_id} has no ready {vector.value} vector.")
+        self.phase_ring.append(PhaseSlot(owner=player_id, vector=vector))
+        p.ready_vectors[vector] -= 1
 
-    def mine(self, player_id: int, hex_coord: Hex) -> None:
-        self._require_cell(hex_coord)
-        piece = self.layers[Layer.PRESENT].get(hex_coord)
-        if not piece or piece.owner != player_id:
-            raise RuleViolation("Mine requires your piece on Present layer.")
-        reward = [Resource.ORE, Resource.FLUX, Resource.FIBER, Resource.EMBER][self.round % 4]
-        self.players[player_id].resources[reward] += 1
+    def decline_program(self, player_id: int) -> None:
+        self._validate_player(player_id)
+        self.players[player_id].foam += 1
 
-    def build(self, player_id: int, layer: Layer, piece_type: PieceType, hex_coord: Hex) -> None:
-        if piece_type == PieceType.CORE:
-            raise RuleViolation("Cannot build a Core.")
-        self._require_cell(hex_coord)
-        if hex_coord in self.layers[layer]:
-            raise RuleViolation("Hex already occupied in this layer.")
-        self._spend_resources(player_id, self.BUILD_COST[piece_type])
-        self.layers[layer][hex_coord] = Piece(player_id, piece_type)
-
-    def shift(self, player_id: int, layer: Layer, source: Hex, target: Hex) -> None:
-        self._require_cell(source)
-        self._require_cell(target)
-        if target not in self.neighbors(source):
-            raise RuleViolation("Shift target must be adjacent.")
-        p = self.layers[layer].get(source)
-        if not p or p.owner != player_id:
-            raise RuleViolation("No movable piece at source.")
-        if p.piece_type == PieceType.CORE:
-            raise RuleViolation("Architect Core cannot move.")
-        if target in self.layers[layer]:
-            raise RuleViolation("Target occupied.")
-        self.layers[layer][target] = p
-        del self.layers[layer][source]
-
-    def project(self, player_id: int, piece_type: PieceType, hex_coord: Hex) -> None:
-        if piece_type == PieceType.CORE:
-            raise RuleViolation("Cannot project a Core.")
-        self._require_cell(hex_coord)
-        self._spend_resources(player_id, {Resource.FLUX: 1})
-        self.future_ghosts.append(BuildGhost(player_id, piece_type, hex_coord))
-
-    def retrofit(self, player_id: int, hex_coord: Hex) -> None:
-        self._require_cell(hex_coord)
-        piece = self.layers[Layer.PAST].get(hex_coord)
-        if not piece or piece.owner != player_id:
-            raise RuleViolation("Retrofit needs your Past piece.")
-        if piece.piece_type not in (PieceType.KEYSTONE, PieceType.RELAY):
-            raise RuleViolation("Only Keystone/Relay can retrofit.")
-        self._spend_resources(player_id, {Resource.ORE: 1, Resource.FIBER: 1})
-        piece.piece_type = PieceType.RELAY if piece.piece_type == PieceType.KEYSTONE else PieceType.KEYSTONE
-
-        present = self.layers[Layer.PRESENT].get(hex_coord)
-        if present and present.owner != player_id and present.piece_type != piece.piece_type:
-            self.players[player_id].instability += 1
-            self.players[present.owner].instability += 1
-            self.players[present.owner].pressure += 1
-
-    def resonate(self, player_id: int, lower: Layer, upper: Layer, hex_coord: Hex) -> None:
-        if (lower, upper) not in ((Layer.PAST, Layer.PRESENT), (Layer.PRESENT, Layer.FUTURE)):
-            raise RuleViolation("Resonance only between adjacent layers.")
-        low_piece = self.layers[lower].get(hex_coord)
-        up_piece = self.layers[upper].get(hex_coord)
-        if not low_piece or not up_piece:
-            raise RuleViolation("Both layers need pieces on same hex.")
-        if low_piece.owner != player_id or up_piece.owner != player_id:
-            raise RuleViolation("Resonance requires ownership on both pieces.")
-        self.resonance_links.add((player_id, hex_coord, lower, upper))
-
-    def stabilize(self, player_id: int) -> None:
+    # -----------------------------
+    # Construct phase actions
+    # -----------------------------
+    def place_beacon(self, player_id: int, sector_idx: int) -> None:
+        self._validate_player(player_id)
+        self._validate_sector(sector_idx)
         p = self.players[player_id]
-        if sum(p.resources.values()) < 2:
-            raise RuleViolation("Need any 2 resources to stabilize.")
-        to_spend = 2
-        for res in (Resource.ORE, Resource.FLUX, Resource.FIBER, Resource.EMBER):
-            while p.resources[res] > 0 and to_spend > 0:
-                p.resources[res] -= 1
-                to_spend -= 1
-            if to_spend == 0:
-                break
-        p.instability = max(0, p.instability - 1)
+        if p.foam < 1:
+            raise RuleViolation("Need 1 foam to place a beacon.")
+        if sector_idx in p.beacons:
+            raise RuleViolation("Beacon already present in that sector.")
+        p.foam -= 1
+        p.beacons.append(sector_idx)
 
-    def resolve_cascade_phase(self) -> None:
-        for ghost in self.future_ghosts:
-            if ghost.hex_coord in self.layers[Layer.PRESENT]:
-                self.players[ghost.owner].instability += 1
+    def place_siphon(self, player_id: int, sector_idx: int) -> None:
+        self._validate_player(player_id)
+        self._validate_sector(sector_idx)
+        p = self.players[player_id]
+        if sector_idx == p.harbor:
+            raise RuleViolation("Harbor sector cannot hold siphon.")
+        if p.foam < 1 or p.drift < 1:
+            raise RuleViolation("Need 1 foam and 1 drift to place a siphon.")
+        if sector_idx in p.siphons:
+            raise RuleViolation("Siphon already present in that sector.")
+        p.foam -= 1
+        p.drift -= 1
+        p.siphons.append(sector_idx)
+
+    def claim_sector(self, player_id: int, sector_idx: int) -> None:
+        self._validate_player(player_id)
+        self._validate_sector(sector_idx)
+        p = self.players[player_id]
+        if sector_idx not in p.beacons:
+            raise RuleViolation("Need your beacon in a sector before claiming it.")
+        if sector_idx in p.claims:
+            raise RuleViolation("Sector already claimed by this player.")
+        p.claims.append(sector_idx)
+
+    def convert_foam_to_drift(self, player_id: int) -> None:
+        self._validate_player(player_id)
+        p = self.players[player_id]
+        if p.foam < 2:
+            raise RuleViolation("Need 2 foam to convert into 1 drift.")
+        p.foam -= 2
+        p.drift += 1
+
+    def recover_spent_vector(self, player_id: int, vector: Optional[VectorType] = None) -> None:
+        self._validate_player(player_id)
+        p = self.players[player_id]
+        if not p.spent_vectors:
+            raise RuleViolation("No spent vectors to recover.")
+        if vector is None:
+            recovered = p.spent_vectors.pop()
+        else:
+            try:
+                idx = p.spent_vectors.index(vector)
+            except ValueError as exc:
+                raise RuleViolation(f"Spent {vector.value} vector not available.") from exc
+            recovered = p.spent_vectors.pop(idx)
+        p.ready_vectors[recovered] += 1
+
+    # -----------------------------
+    # Execute phase
+    # -----------------------------
+    def execute_phase(self) -> None:
+        prev_executed_vector: Optional[VectorType] = None
+        null_pending = False
+        for slot in self.phase_ring:
+            if null_pending:
+                slot.cancelled = True
+                null_pending = False
                 continue
-            if ghost.hex_coord not in self.layers[Layer.FUTURE]:
-                self.layers[Layer.PRESENT][ghost.hex_coord] = Piece(ghost.owner, ghost.piece_type)
-        self.future_ghosts.clear()
 
-    def resolve_stability_check(self) -> None:
-        for pid, p in self.players.items():
-            if p.pressure >= 3:
-                if p.resources[Resource.FLUX] >= 2:
-                    p.resources[Resource.FLUX] -= 2
-                else:
-                    p.instability += 1
-                p.pressure = 0
+            if slot.vector == VectorType.NULL:
+                null_pending = True
+                prev_executed_vector = VectorType.NULL
+                continue
 
-            if p.instability >= 5:
-                present_cells = [c for c, piece in self.layers[Layer.PRESENT].items() if piece.owner == pid and piece.piece_type != PieceType.CORE]
-                if present_cells:
-                    drop = self.random.choice(present_cells)
-                    del self.layers[Layer.PRESENT][drop]
-                if p.blueprint_hand:
-                    p.blueprint_hand.pop(self.random.randrange(len(p.blueprint_hand)))
-                p.instability = max(0, p.instability - 2)
+            if slot.vector == VectorType.MIRROR:
+                if prev_executed_vector and prev_executed_vector != VectorType.NULL:
+                    self._execute_vector(slot.owner, self._mirror_of(prev_executed_vector))
+                    prev_executed_vector = VectorType.MIRROR
+                continue
 
-    def continuity_links(self, player_id: int) -> int:
-        pp = {(pid, hx) for pid, hx, lo, hi in self.resonance_links if pid == player_id and lo == Layer.PAST and hi == Layer.PRESENT}
-        pf = {(pid, hx) for pid, hx, lo, hi in self.resonance_links if pid == player_id and lo == Layer.PRESENT and hi == Layer.FUTURE}
-        return len({hx for (_, hx) in pp} & {hx for (_, hx) in pf})
+            self._execute_vector(slot.owner, slot.vector)
+            prev_executed_vector = slot.vector
 
-    def controlled_keystones_present(self, player_id: int) -> int:
-        return sum(1 for piece in self.layers[Layer.PRESENT].values() if piece.owner == player_id and piece.piece_type == PieceType.KEYSTONE)
+    def _mirror_of(self, vector: VectorType) -> VectorType:
+        if vector == VectorType.PUSH:
+            return VectorType.PULL
+        if vector == VectorType.PULL:
+            return VectorType.PUSH
+        return vector
 
-    def apex_conditions_met(self, player_id: int) -> bool:
-        anchor = self.controlled_keystones_present(player_id) >= 4
-        continuity = self.continuity_links(player_id) >= 2
-        core_cells = [c for c, p in self.layers[Layer.PRESENT].items() if p.owner == player_id and p.piece_type == PieceType.CORE]
-        identity = bool(core_cells) and self.players[player_id].instability < 5
-        return anchor and continuity and identity
-
-    def apex_score(self, player_id: int) -> int:
+    def _execute_vector(self, player_id: int, vector: VectorType) -> None:
         p = self.players[player_id]
-        return (
-            2 * self.controlled_keystones_present(player_id)
-            + 3 * self.continuity_links(player_id)
-            + p.resources[Resource.EMBER]
+        if vector == VectorType.PUSH:
+            for sector in list(p.beacons):
+                bonus = 1 if self._has_resonant_arc_middle(player_id, sector) else 0
+                self._move_water(sector, self._cw(sector), 1 + bonus)
+        elif vector == VectorType.PULL:
+            for sector in list(p.siphons):
+                src = self._cw(sector)
+                self._move_water(src, sector, 1)
+        elif vector == VectorType.SPLIT:
+            options = [s for s in p.beacons if self.sectors[s].water >= 2]
+            if options:
+                chosen = options[0]
+                amount = self.sectors[chosen].water // 2
+                self.sectors[chosen].water -= amount
+                left = amount // 2
+                right = amount - left
+                self._deposit(self._cw(chosen), right)
+                self._deposit(self._ccw(chosen), left)
+
+    def _has_resonant_arc_middle(self, player_id: int, sector: int) -> bool:
+        p = self.players[player_id]
+        b = set(p.beacons)
+        return self._ccw(sector) in b and sector in b and self._cw(sector) in b
+
+    def _move_water(self, source: int, target: int, amount: int) -> None:
+        moved = min(amount, self.sectors[source].water)
+        if moved <= 0:
+            return
+        self.sectors[source].water -= moved
+        self._deposit(target, moved)
+
+    def _deposit(self, target: int, amount: int) -> None:
+        self.sectors[target].water += amount
+        if self.sectors[target].water >= 4:
+            self.sectors[target].foam += 1
+            self.sectors[target].water -= 1
+
+    # -----------------------------
+    # Balance phase and scoring
+    # -----------------------------
+    def balance_phase(self) -> None:
+        self.tide = {
+            TideState.LOW: TideState.CREST,
+            TideState.CREST: TideState.BREAK,
+            TideState.BREAK: TideState.LOW,
+        }[self.tide]
+
+        if self.tide == TideState.LOW:
+            for sec in self.sectors:
+                if sec.water == 0:
+                    sec.water = 1
+        elif self.tide == TideState.CREST:
+            for sec in self.sectors:
+                if sec.water >= 5:
+                    sec.water = max(0, sec.water - 2)
+        else:  # BREAK
+            for p in self.players.values():
+                if p.drift >= 1:
+                    p.drift -= 1
+                elif p.claims:
+                    p.claims.pop()
+
+        for p in self.players.values():
+            if self.sectors[p.harbor].water == 1 and p.spent_vectors:
+                self.recover_spent_vector(p.player_id)
+
+        for slot in self.phase_ring:
+            self.players[slot.owner].spent_vectors.append(slot.vector)
+        self.phase_ring.clear()
+
+        self.first_navigator = (self.first_navigator + 1) % self.num_players
+        self.cycle += 1
+
+    def harmonized_sectors(self, player_id: int) -> int:
+        p = self.players[player_id]
+        harmonized = 0
+        for sector in p.beacons:
+            sec = self.sectors[sector]
+            adj = {self._cw(sector), self._ccw(sector)}
+            if sec.water == 3 and sec.foam == 1 and any(a in p.siphons for a in adj):
+                harmonized += 1
+        return harmonized
+
+    def score_player(self, player_id: int) -> int:
+        p = self.players[player_id]
+        harmonized_points = 3 * self.harmonized_sectors(player_id)
+        siphon_points = 0
+        for siphon in p.siphons:
+            adj = {self._cw(siphon), self._ccw(siphon)}
+            if len(adj & set(p.claims)) >= 2:
+                siphon_points += 2
+
+        beacon_positions = sorted(set(p.beacons))
+        paired = 0
+        seen_pairs: set[Tuple[int, int]] = set()
+        for b in beacon_positions:
+            other = (b + 3) % SECTOR_COUNT
+            if other in beacon_positions:
+                pair = tuple(sorted((b, other)))
+                if pair not in seen_pairs:
+                    seen_pairs.add(pair)
+                    paired += 1
+
+        return harmonized_points + siphon_points + p.drift + paired
+
+    def game_over(self) -> bool:
+        return self.cycle > MAX_CYCLES or any(
+            self.harmonized_sectors(pid) >= 5 for pid in self.players
         )
 
-    def end_round(self) -> None:
-        self.resolve_cascade_phase()
-        self.resolve_stability_check()
-        self.round += 1
-        self.current_player = (self.current_player + 1) % self.num_players
+    def winner(self) -> Optional[int]:
+        if not self.game_over():
+            return None
+        candidates = sorted(self.players.keys(), key=lambda pid: self.score_player(pid), reverse=True)
+        top_score = self.score_player(candidates[0])
+        top_players = [pid for pid in candidates if self.score_player(pid) == top_score]
+        if len(top_players) == 1:
+            return top_players[0]
 
+        # tiebreaker 1: sectors with exactly 3 water
+        def t1(pid: int) -> int:
+            player_beacons = set(self.players[pid].beacons)
+            return sum(1 for idx in player_beacons if self.sectors[idx].water == 3)
 
-if __name__ == "__main__":
-    game = ChronoforgeStrataGame(num_players=2, seed=7)
-    print("Chronoforge Strata engine initialized")
-    print(f"Board cells: {len(game.board_cells)}")
-    for pid in range(game.num_players):
-        print(f"Player {pid} resources: {game.players[pid].resources}")
+        best_t1 = max(t1(pid) for pid in top_players)
+        top_players = [pid for pid in top_players if t1(pid) == best_t1]
+        if len(top_players) == 1:
+            return top_players[0]
+
+        # tiebreaker 2: fewer spent vectors
+        fewest_spent = min(len(self.players[pid].spent_vectors) for pid in top_players)
+        top_players = [pid for pid in top_players if len(self.players[pid].spent_vectors) == fewest_spent]
+        if len(top_players) == 1:
+            return top_players[0]
+
+        # tiebreaker 3: latest in turn order (highest id)
+        return max(top_players)

@@ -1,198 +1,145 @@
-# Chronoforge Strata
+# Lattice of Tides
 
-A brand-new tabletop strategy game built around **time-layered construction** and **causality conflicts**.
-
-## Core Concept
-Players are rival Architects shaping a floating world made of unstable "time-stone."  
-Every action is taken in one of three time layers:
-- **Past Layer** (foundation)
-- **Present Layer** (active world)
-- **Future Layer** (planned world)
-
-Pieces can affect other layers in asymmetric ways. You can set up structures in the Future that only become usable later, or rewrite weak foundations in the Past to destabilize an opponent in the Present. This creates a strategic system based on **cross-time dependency**, not territory control alone.
-
----
+**Lattice of Tides** is an original strategy game where players do not move armies across territory.  
+Instead, they program a shared kinetic ocean-machine by placing commands into a rotating ring of phases. The board state transforms each cycle according to the command lattice, so strategy comes from timing, sequencing, and interference.
 
 ## Players
-- **2 to 5 players**
-- Best with 3–4 for diplomacy and layered prediction
-
----
+- **2–6 players**
+- Best with 4
 
 ## Materials Needed
 
-### Board and Shared Components
-1. **1 Hex board with 91 cells** (9-row hex map)
-2. **3 transparent Time Sheets** (Past, Present, Future) that overlay the same board
-3. **120 Strata Cubes** (resource cubes in 4 colors)
-   - 30 Ore (gray)
-   - 30 Flux (blue)
-   - 30 Fiber (green)
-   - 30 Ember (red)
-4. **45 Instability tokens**
-5. **30 Resonance rings** (small rings placed around pieces to show active links)
-6. **1 Round tracker**
-7. **1 First Architect marker**
+### Shared Materials
+1. **1 Circular board** with 24 coast sectors and a 6-slot phase ring in the center.
+2. **1 Tide wheel** with three states: Low, Crest, Break.
+3. **90 Water tokens**.
+4. **72 Foam tokens**.
+5. **48 Drift tokens**.
+6. **1 Cycle marker**.
+7. **1 First Navigator marker**.
 
-### Per Player Components (5 sets)
-Each player gets:
-1. **1 Architect Core** (main command piece)
-2. **9 Keystone pieces** (structural nodes)
-3. **6 Relay pieces** (link / transport units)
-4. **5 Refractor pieces** (rule-bending units)
-5. **12 Influence markers**
-6. **1 player aid card**
+### Per Player (up to 6 sets)
+1. **1 Harbor piece**.
+2. **10 Beacon pieces**.
+3. **8 Siphon pieces**.
+4. **8 Vector tiles** (command tiles):
+   - 3 Push
+   - 2 Pull
+   - 1 Split
+   - 1 Mirror
+   - 1 Null
+5. **12 Claim markers**.
+6. **1 reference card**.
 
-### Cards
-1. **36 Blueprint cards** (modular actions)
-2. **30 Event cards** (global effects)
-3. **20 Secret Objective cards**
+## Core Idea (Why It Is New)
+- Pieces do not attack or capture each other directly.
+- Players place **commands** into a public phase ring.
+- At resolution, the ring executes in order and physically moves token flows around the circle.
+- Control comes from building **stable flow equations** at your Harbors while disrupting opponents’ equations by changing sequence math.
 
----
+This is not territory conquest, deck combat, worker placement, trick-taking, or hidden-role play.
 
 ## Setup
-1. Place the hex board in the center.
-2. Place the three Time Sheets stacked in order: Past (bottom), Present (middle), Future (top).
-3. Shuffle Blueprint, Event, and Secret Objective decks separately.
-4. Each player:
-   - Takes one full piece set and markers.
-   - Places their Architect Core in the Present Layer on any outer-ring hex (clockwise order).
-   - Draws 3 Blueprint cards.
-   - Draws 1 Secret Objective.
-   - Receives starting resources: 2 Ore, 1 Flux, 1 Fiber, 0 Ember.
-5. Put all Instability tokens and Resonance rings in supply.
-6. Set round tracker to Round 1.
+1. Place the circular board and phase ring.
+2. Set Tide wheel to **Low**.
+3. Put 2 Water tokens in every coast sector.
+4. Each player chooses a color and takes one player set.
+5. In reverse turn order, each player places their Harbor in an empty coast sector.
+6. Give each player 2 random Vector tiles from their own set into hand (keep rest face up near player).
+7. Each player gains 2 Foam and 1 Drift from supply.
+8. Randomly choose first player and give First Navigator marker.
+9. Set cycle marker to 1.
+
+## Objective and Endgame
+Game ends after **9 cycles**, or immediately when one player has **5 Harmonized Sectors**.
+
+### Harmonized Sector
+A coast sector is Harmonized for a player when:
+1. The player has a Beacon in that sector.
+2. Sector contains exactly **3 Water** and exactly **1 Foam**.
+3. The sector is adjacent to a sector containing the player’s Siphon.
+
+### Scoring (if no instant win)
+- 3 points per Harmonized Sector.
+- 2 points per Siphon that is adjacent to 2+ sectors with your Claim markers.
+- 1 point per unspent Drift.
+- 1 point per pair of your Beacons separated by exactly 3 sectors around the ring.
+
+Tiebreakers:
+1. Most sectors with exactly 3 Water (regardless of Foam).
+2. Fewest spent Vector tiles.
+3. Latest in turn order.
+
+## Turn Structure (Each Cycle)
+Each cycle has 4 phases:
+
+1. **Program Phase**
+2. **Execute Phase**
+3. **Construct Phase**
+4. **Balance Phase**
+
+### 1) Program Phase
+In turn order, each player may place exactly one Vector tile into an empty phase slot (6 slots total).  
+If all slots fill before all players place, remaining players gain 1 Drift.
+
+If a player declines to place, they gain 1 Foam.
+
+### 2) Execute Phase
+Resolve slots 1→6:
+- **Push**: move 1 Water clockwise from each sector where placer has a Beacon.
+- **Pull**: move 1 Water counterclockwise toward each sector where placer has a Siphon.
+- **Split**: choose one of your sectors with 2+ Water; move half (rounded down) one step each direction.
+- **Mirror**: repeat the previous resolved slot, but direction is inverted.
+- **Null**: cancel the next unresolved slot.
+
+Each moved Water that enters a sector with 4+ Water creates 1 Foam there and immediately removes 1 Water.
+
+### 3) Construct Phase
+Each player may perform **two different actions**:
+- Place Beacon (cost: 1 Foam)
+- Place Siphon (cost: 1 Drift + 1 Foam)
+- Claim sector with your marker (requires your Beacon there)
+- Convert 2 Foam into 1 Drift
+- Recover one spent Vector tile
+
+Restrictions:
+- Max 1 of your piece type per sector.
+- Harbor sector cannot hold Siphon.
+- You cannot take same action twice in this phase.
+
+### 4) Balance Phase
+1. Advance Tide wheel (Low→Crest→Break→Low).
+2. Apply tide effect:
+   - **Low**: every sector with 0 Water gains 1 Water.
+   - **Crest**: every sector with 5+ Water loses 2 Water.
+   - **Break**: each player must remove one Claim marker or spend 1 Drift.
+3. Clear phase ring; placed Vector tiles become spent.
+4. Pass First Navigator marker clockwise.
+5. Advance cycle marker.
+
+## Special Interaction Rules
+
+### Resonant Arc
+If a player has Beacons in three consecutive sectors, they form a Resonant Arc:
+- Their Push commands move +1 additional Water from the middle sector.
+
+### Shear Lock
+If two players both have pieces in the same sector and Null is resolved there, both gain 1 Drift and that sector cannot receive Water for the remainder of Execute Phase.
+
+### Quiet Harbor
+If a Harbor’s sector has exactly 1 Water during Balance Phase, that player may recover one additional spent Vector tile.
+
+## Why It Stays Strategic
+- You forecast the full command timeline before resolution.
+- Timing and slot order matters more than raw piece count.
+- You can win by precision-engineering target states, not by eliminating opponents.
 
 ---
 
-## Winning the Game
-The game ends at the end of Round 10, or immediately if a player completes **all 3 Apex Conditions**.
-
-### Apex Conditions
-A player must satisfy all three simultaneously:
-1. **Anchor Condition**: control at least 4 Keystone-connected hexes in the Present.
-2. **Continuity Condition**: maintain at least 2 active links between Past↔Present and 2 between Present↔Future.
-3. **Identity Condition**: Architect Core is stable (not destabilized) and has at least 3 Influence markers adjacent.
-
-If nobody triggers instant win, highest **Apex Score** at end of Round 10 wins:
-- 2 points per controlled Keystone hex (Present)
-- 3 points per completed continuity link pair
-- 1 point per unspent Ember
-- Secret Objective points (4–8)
-
-Tiebreaker: fewer Instability tokens on your network, then turn order reverse (later player wins tie).
-
----
-
-## Turn Structure (per Round)
-Each round has 5 phases:
-
-1. **Forecast Phase**
-2. **Draft Phase**
-3. **Action Phase**
-4. **Cascade Phase**
-5. **Stability Check Phase**
-
-### 1) Forecast Phase
-- Reveal 1 Event card affecting all players for this round.
-- Some events target only one layer; others alter transfer costs or collapse thresholds.
-
-### 2) Draft Phase
-- Each player draws 2 Blueprint cards.
-- Choose 1 to keep, pass 1 left.
-- After one pass, keep received card.
-- Hand limit: 5 cards (discard excess).
-
-### 3) Action Phase
-In clockwise order, players each take **2 Actions**, then repeat for **3 cycles** (total 6 actions each round).
-
-Possible actions:
-1. **Mine**: collect 1 resource from a hex you influence in Present.
-2. **Build**: place Keystone or Relay in any layer by paying listed cost.
-3. **Shift**: move one non-Core piece to an adjacent hex in same layer.
-4. **Project**: place a ghost marker of a piece in Future (cost Flux).
-5. **Retrofit**: alter one Past-layer piece type (Keystone ↔ Relay) by paying Ore + Fiber.
-6. **Resonate**: create link between two of your pieces in adjacent layers on same hex (use Resonance ring).
-7. **Invoke Blueprint**: play a Blueprint card for its unique effect.
-8. **Stabilize**: remove 1 Instability token from your network by spending any 2 resources.
-
-#### Action Limits
-- You may take the same action multiple times except Invoke Blueprint (max 1 per cycle).
-- Architect Core cannot move.
-- You cannot build on an occupied hex in same layer.
-
-### 4) Cascade Phase
-Resolve all Future ghost markers:
-- If projected piece is still legal and paid in full, it materializes in Present.
-- If blocked or unpaid, place 1 Instability token on owner and discard the ghost marker.
-
-Then resolve Past edits:
-- Any Retrofit from this round attempts to "propagate" to Present copies on same hex.
-- If propagation conflicts with existing piece type, conflict creates Instability on both owners.
-
-### 5) Stability Check Phase
-For each player:
-- If they have **5+ Instability tokens**, their network is destabilized:
-  - Remove one random non-Core piece in Present.
-  - Discard one random Blueprint card.
-  - Then reduce Instability by 2.
-
-Advance round marker, pass First Architect marker clockwise.
-
----
-
-## Layer Interaction Rules (Unique Engine)
-
-### A. Continuity Links
-A continuity link requires:
-- same owner
-- same hex coordinate
-- connected pieces in adjacent layers
-- Resonance ring present
-
-A full chain (Past→Present→Future) grants:
-- +1 influence range from that hex
-- one free Shift per round from that chain origin
-
-### B. Causality Pressure
-Each time a player edits Past where another player has Present control on same hex:
-- Place 1 pressure marker on that opponent.
-- At 3 pressure markers, opponent must either spend 2 Flux or gain 1 Instability.
-- Pressure then resets to 0.
-
-### C. Echo Occupancy
-If two players occupy same hex coordinate in different layers, they are in Echo Occupancy.
-- Echo Occupancy enables trade, sabotage, or resonance theft via Blueprint effects.
-- No combat dice; conflicts are deterministic via costs and layer precedence.
-
-Layer precedence for forced resolution:
-1. Past (structural authority)
-2. Present (positional authority)
-3. Future (intent authority)
-
----
-
-## Blueprint Card Framework (Examples)
-- **Paradox Clamp**: cancel one opposing Future materialization on a matching hex.
-- **Harmonic Bridge**: create two resonance links for one action.
-- **Ashen Ledger**: convert all Ember to score now; gain equal Instability.
-- **Root Rewrite**: perform a second Retrofit this cycle for free.
-- **Silent Corridor**: your Relays ignore occupancy when shifting this cycle.
-
----
-
-## Secret Objective Examples
-- **Threefold Spine**: build one full Past→Present→Future chain in 3 separate hexes.
-- **Beneath Notice**: win with 0 Instability at game end.
-- **Borrowed Tomorrow**: materialize at least 6 Future projections during game.
-
----
-
-## Why This Game Is Distinct
-Chronoforge Strata is intentionally designed around:
-- **Layered simultaneity** (same map, multiple times)
-- **Deterministic non-combat conflict**
-- **Cross-round causality edits** (Past retrofits affecting Present)
-- **Requirement to balance growth with temporal stability**
-
-The strategic depth comes from creating a resilient multi-layer network while pressuring others through causality, not by directly eliminating units.
+## Engine Implementation (in this repo)
+The Python engine in `src/chronoforge_strata.py` currently implements:
+- Program actions (place/decline vectors)
+- Execute actions (Push, Pull, Split, Mirror, Null)
+- Construct actions (beacon, siphon, claim, convert, recover)
+- Balance/tide progression and spent-vector handling
+- Harmonized-sector checks, scoring, endgame, and winner selection
